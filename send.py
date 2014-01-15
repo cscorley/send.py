@@ -1,7 +1,11 @@
 #!/usr/bin/env python2
+from __future__ import print_function
+from email.parser import Parser
+from email.utils import parseaddr
 from os.path import expanduser
 from ConfigParser import ConfigParser
 from collections import namedtuple
+import sys
 import argparse
 import smtplib
 import urllib
@@ -16,12 +20,20 @@ Account = namedtuple('Account',
 
 def main(argv):
     parser = argparse.ArgumentParser(description='Mail using XOAUTH2')
-    parser.add_argument('toaddrs', metavar='address', type=str, nargs='+',
+    parser.add_argument('toaddrs', metavar='address', type=str, nargs='*',
             help='Mail address to be sent to')
     parser.add_argument('-f', dest='fromaddr', type=str,
             help='Mail address to be sent from')
+    parser.add_argument('--readfrommsg', action='store_true',
+            help='Read the mail to determine the sender and recievers')
+    parser.add_argument('--debug', action='store_true',
+            help='Debug mode')
+
 
     args = parser.parse_args()
+
+    if args.debug:
+        print(argv)
 
     # TODO: set defaults
     config = ConfigParser()
@@ -31,17 +43,33 @@ def main(argv):
     client_id = config.get('oauth2', 'client_id')
     client_secret = config.get('oauth2', 'client_secret')
 
+
     accounts = build_accounts(config)
+
+    fromaddr = None
+    toaddrs = list()
 
     body = sys.stdin.read()
 
-    if args.fromaddr in accounts:
-        acct = accounts[args.fromaddr]
+    if args.readfrommsg:
+        email_parser = Parser()
+        msg = email_parser.parsestr(body)
+        fromaddr = parseaddr(msg['from'])[1]
+        toaddrs = parseaddr(msg['to'])[1]
+    else:
+        fromaddr = args.fromaddr
+        toaddrs = args.toaddrs
+
+    if fromaddr in accounts:
+        acct = accounts[fromaddr]
         oauth = Oauth(request_url, client_id, client_secret,
                 acct.username, acct.refresh_token)
-        sender(args.fromaddr, args.toaddrs, body, oauth, acct)
+        if args.debug:
+            print("Sending from:", fromaddr)
+            print("Sending to:", toaddrs)
+        sender(fromaddr, toaddrs, body, oauth, acct, args.debug)
     else:
-        raise KeyError('Configuration file has no section for: ', addr)
+        raise KeyError('Configuration file has no section for: ', fromaddr)
 
 def build_accounts(config):
     accts = dict()
@@ -96,5 +124,4 @@ def sender(fromaddr, toaddrs, body, oauth, acct, debug=False):
 
 
 if __name__ == '__main__':
-    import sys
     sys.exit(main(sys.argv))
