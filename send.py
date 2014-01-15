@@ -1,3 +1,4 @@
+#!/usr/bin/env python2
 from __future__ import print_function
 from email.parser import Parser
 from email.utils import parseaddr
