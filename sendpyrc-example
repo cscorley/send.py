@@ -1,0 +1,21 @@
+[oauth2]
+request_url = https://accounts.google.com/o/oauth2/token
+client_id = 
+client_secret = 
+
+[account gmail]
+username = you@gmail.com
+refresh_token = 
+address = smtp.gmail.com
+port = 465
+use_ssl = True
+use_tls = False
+
+[account gapps]
+username = pigpen@example.com
+refresh_token = 
+address = smtp.gmail.com
+port = 465
+use_ssl = True
+use_tls = False
+
