@@ -1,8 +1,5 @@
 #!/usr/bin/env python2
-from __future__ import print_function
 from os.path import expanduser
-from email.parser import Parser
-from email.utils import parseaddr
 from ConfigParser import ConfigParser
 from collections import namedtuple
 import argparse
@@ -19,34 +16,32 @@ Account = namedtuple('Account',
 
 def main(argv):
     parser = argparse.ArgumentParser(description='Mail using XOAUTH2')
-    parser.add_argument('filenames', metavar='mail', type=str, nargs='+',
-            help='Mail to be sent')
+    parser.add_argument('toaddrs', metavar='address', type=str, nargs='+',
+            help='Mail address to be sent to')
+    parser.add_argument('-f', dest='fromaddr', type=str,
+            help='Mail address to be sent from')
 
     args = parser.parse_args()
 
-    config = ConfigParser()
     # TODO: set defaults
+    config = ConfigParser()
     config.read(expanduser(CONFIG_PATH))
-    # get oauth stuff out
+
     request_url = config.get('oauth2', 'request_url')
     client_id = config.get('oauth2', 'client_id')
     client_secret = config.get('oauth2', 'client_secret')
 
     accounts = build_accounts(config)
 
-    email_parser = Parser()
-    for mailfile in args.filenames:
-        print(mailfile)
+    body = sys.stdin.read()
 
-        msg = email_parser.parse(open(mailfile, 'r'))
-        addr = parseaddr(msg['from'])[1] # parse out the email
-        if addr in accounts:
-            acct = accounts[addr]
-            oauth = Oauth(request_url, client_id, client_secret, 
-                    acct.username, acct.refresh_token)
-            sender(msg, oauth, acct)
-        else:
-            raise KeyError('Configuration file has no section for: ', addr)
+    if args.fromaddr in accounts:
+        acct = accounts[args.fromaddr]
+        oauth = Oauth(request_url, client_id, client_secret,
+                acct.username, acct.refresh_token)
+        sender(args.fromaddr, args.toaddrs, body, oauth, acct)
+    else:
+        raise KeyError('Configuration file has no section for: ', addr)
 
 def build_accounts(config):
     accts = dict()
@@ -64,7 +59,6 @@ def build_accounts(config):
 
     return accts
 
-
 def oauth_handler(oauth):
     params = dict()
     params['client_id'] = oauth.client_id
@@ -81,7 +75,7 @@ def oauth_handler(oauth):
     return auth_string
 
 
-def sender(msg, oauth, acct, debug=False):
+def sender(fromaddr, toaddrs, body, oauth, acct, debug=False):
     if acct.use_ssl:
         server = smtplib.SMTP_SSL(host=acct.address, port=acct.port)
     else:
@@ -97,7 +91,7 @@ def sender(msg, oauth, acct, debug=False):
     auth = oauth_handler(oauth)
     server.docmd('AUTH', 'XOAUTH2 %s' % auth)
 
-    server.sendmail(msg['from'], msg['to'], msg.as_string())
+    server.sendmail(fromaddr, toaddrs, body)
     server.quit()
 
 
