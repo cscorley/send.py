@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 from __future__ import print_function
+from os.path import expanduser
 from email.parser import Parser
 from email.utils import parseaddr
 from ConfigParser import ConfigParser
@@ -10,7 +11,7 @@ import urllib
 import json
 import base64
 
-CONFIG_NAME = '.sendpyrc'
+CONFIG_PATH = '~/.sendpyrc'
 Oauth = namedtuple('Oauth',
     'request_url, client_id, client_secret, username, user_refresh_token')
 Account = namedtuple('Account',
@@ -25,8 +26,7 @@ def main(argv):
 
     config = ConfigParser()
     # TODO: set defaults
-    # TODO: figure out how to get ~
-    config.read('/Users/cscorley/' + CONFIG_NAME)
+    config.read(expanduser(CONFIG_PATH))
     # get oauth stuff out
     request_url = config.get('oauth2', 'request_url')
     client_id = config.get('oauth2', 'client_id')
