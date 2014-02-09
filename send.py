@@ -1,7 +1,7 @@
 #!/usr/bin/env python2
 from __future__ import print_function
 from email.parser import Parser
-from email.utils import parseaddr
+from email.utils import parseaddr,getaddresses
 from os.path import expanduser
 from ConfigParser import ConfigParser
 from collections import namedtuple
@@ -55,7 +55,16 @@ def main(argv):
         email_parser = Parser()
         msg = email_parser.parsestr(body)
         fromaddr = parseaddr(msg['from'])[1]
-        toaddrs = parseaddr(msg['to'])[1]
+
+        # email!
+        tos = msg.get_all('to', [])
+        ccs = msg.get_all('cc', [])
+        bccs = msg.get_all('bcc', [])
+        resent_tos = msg.get_all('resent-to', [])
+        resent_ccs = msg.get_all('resent-cc', [])
+        resent_bccs = msg.get_all('resent-bcc', [])
+        all_recipients = getaddresses(tos + ccs + bccs + resent_tos + resent_ccs + resent_bccs)
+        toaddrs = [x[1] for x in all_recipients]
     else:
         fromaddr = args.fromaddr
         toaddrs = args.toaddrs
