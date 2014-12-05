@@ -50,24 +50,34 @@ def main(argv):
     toaddrs = list()
 
     body = sys.stdin.read()
+    email_parser = Parser()
+    msg = email_parser.parsestr(body)
+
+    tos = list()
+    ccs = list()
+    bccs = list()
 
     if args.readfrommsg:
-        email_parser = Parser()
-        msg = email_parser.parsestr(body)
         fromaddr = parseaddr(msg['from'])[1]
 
         # email!
-        tos = msg.get_all('to', [])
-        ccs = msg.get_all('cc', [])
-        bccs = msg.get_all('bcc', [])
-        resent_tos = msg.get_all('resent-to', [])
-        resent_ccs = msg.get_all('resent-cc', [])
-        resent_bccs = msg.get_all('resent-bcc', [])
-        all_recipients = getaddresses(tos + ccs + bccs + resent_tos + resent_ccs + resent_bccs)
-        toaddrs = [x[1] for x in all_recipients]
+        tos = getaddresses(msg.get_all('to', []))
+        ccs = getaddresses(msg.get_all('cc', []))
+        bccs = getaddresses(msg.get_all('bcc', []))
+        resent_tos = getaddresses(msg.get_all('resent-to', []))
+        resent_ccs = getaddresses(msg.get_all('resent-cc', []))
+        resent_bccs = getaddresses(msg.get_all('resent-bcc', []))
+
+        tos = [x[1] for x in tos + resent_tos]
+        ccs = [x[1] for x in ccs + resent_ccs]
+        bccs = [x[1] for x in bccs + resent_bccs]
     else:
         fromaddr = args.fromaddr
-        toaddrs = args.toaddrs
+        tos = args.toaddrs
+        msg.replace_header('from', fromaddr)
+        msg.replace_header('to', ', '.join(tos))
+
+    msg.replace_header('bcc', None) # wipe out from message
 
     if fromaddr in accounts:
         acct = accounts[fromaddr]
@@ -76,7 +86,7 @@ def main(argv):
         if args.debug:
             print("Sending from:", fromaddr)
             print("Sending to:", toaddrs)
-        sender(fromaddr, toaddrs, body, oauth, acct, args.debug)
+        sender(fromaddr, tos + ccs + bccs, msg, oauth, acct, args.debug)
     else:
         raise KeyError('Configuration file has no section for: ', fromaddr)
 
@@ -112,7 +122,7 @@ def oauth_handler(oauth):
     return auth_string
 
 
-def sender(fromaddr, toaddrs, body, oauth, acct, debug=False):
+def sender(fromaddr, toaddrs, msg, oauth, acct, debug=False):
     if acct.use_ssl:
         server = smtplib.SMTP_SSL(host=acct.address, port=acct.port)
     else:
@@ -128,7 +138,8 @@ def sender(fromaddr, toaddrs, body, oauth, acct, debug=False):
     auth = oauth_handler(oauth)
     server.docmd('AUTH', 'XOAUTH2 %s' % auth)
 
-    server.sendmail(fromaddr, toaddrs, body)
+    server.sendmail(fromaddr, toaddrs, msg.as_string())
+
     server.quit()
 
 
