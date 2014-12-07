@@ -77,7 +77,8 @@ def main(argv):
         msg.replace_header('from', fromaddr)
         msg.replace_header('to', ', '.join(tos))
 
-    msg.replace_header('bcc', None) # wipe out from message
+    if msg.get_all('bcc', False):
+        msg.replace_header('bcc', None) # wipe out from message
 
     if fromaddr in accounts:
         acct = accounts[fromaddr]
